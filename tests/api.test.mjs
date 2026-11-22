@@ -428,3 +428,98 @@ test("combined refresh exposes notes and safe profile fields, never private JSON
     ),
   );
 });
+
+test("shared tasks: public read, approval, complete, edit, conflict, revoke, delete", async () => {
+  await clear();
+  const visitor = client();
+  assert.equal(
+    (await visitor.call("/tasks", "POST", { text: "Buy milk" })).status,
+    403,
+  );
+  const { owner, partner, user } = await approvedPair();
+  const task = await owner.call("/tasks", "POST", { text: "Buy milk" });
+  assert.equal(task.status, 201);
+  assert.equal(task.data.completed, false);
+  const id = task.data.id;
+  const publicList = (await visitor.call("/list")).data;
+  assert.equal(publicList.user, null);
+  assert.equal(publicList.tasks[0].text, "Buy milk");
+  assert.equal("pendingCount" in publicList, false);
+  assert.equal(
+    (await partner.call(`/tasks/${id}`, "PUT", { version: 1, completed: true }))
+      .status,
+    200,
+  );
+  assert.equal((await visitor.call("/list")).data.tasks[0].completed, true);
+  assert.equal(
+    (
+      await partner.call(`/tasks/${id}`, "PUT", {
+        version: 1,
+        text: "Stale edit",
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await owner.call(`/tasks/${id}`, "PUT", {
+        version: 2,
+        completed: "false",
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await owner.call(`/tasks/${id}`, "PUT", { version: 2, text: "" })).status,
+    400,
+  );
+  assert.equal(
+    (
+      await owner.call(`/tasks/${id}`, "PUT", {
+        version: 2,
+        text: "Buy oat milk",
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await visitor.call("/list")).data.tasks[0].text,
+    "Buy oat milk",
+  );
+  await owner.call(`/users/${user.id}`, "PUT", { role: "pending" });
+  assert.equal((await owner.call("/list")).data.pendingCount, 1);
+  assert.equal(
+    (
+      await partner.call(`/tasks/${id}`, "PUT", {
+        version: 3,
+        completed: false,
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (await partner.call(`/tasks/${id}`, "DELETE", { version: 3 })).status,
+    403,
+  );
+  assert.equal(
+    (await owner.call(`/tasks/${id}`, "DELETE", { version: 3 })).status,
+    200,
+  );
+  assert.equal((await visitor.call("/list")).data.tasks.length, 0);
+});
+
+test("existing notes remain readable as tasks with their original details", async () => {
+  await clear();
+  const owner = client();
+  await owner.call("/setup", "POST", credentials);
+  await owner.call("/notes", "POST", draft);
+  const list = (await owner.call("/list")).data;
+  assert.equal(list.tasks[0].text, draft.title);
+  assert.equal(list.tasks[0].details, draft.body);
+  assert.equal(list.tasks[0].completed, false);
+  await owner.call("/tasks/" + list.tasks[0].id, "PUT", {
+    version: 1,
+    completed: true,
+  });
+  assert.equal((await owner.call("/list")).data.tasks[0].details, draft.body);
+});

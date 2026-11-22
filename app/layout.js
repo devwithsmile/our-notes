@@ -2,14 +2,11 @@ import "@fontsource/dm-sans/400.css";
 import "@fontsource/dm-sans/500.css";
 import "@fontsource/dm-sans/600.css";
 import "@fontsource/dm-sans/700.css";
-import "@fontsource/lora/400.css";
-import "@fontsource/lora/500.css";
-import "@fontsource/lora/400-italic.css";
 import "./globals.css";
 export const metadata = {
-  title: "Our Notes — A little space for us",
+  title: "Together — Our shared to-do list",
   description:
-    "A shared notebook for everyday thoughts, plans, and memories. Open to read, written by people you trust.",
+    "One shared to-do list. Everyone can view it; only people you approve can edit.",
 };
 export default function RootLayout({ children }) {
   return (

@@ -1,4 +1,4 @@
-import Notebook from "../components/Notebook";
+import TodoList from "../components/TodoList";
 export default function Page() {
-  return <Notebook />;
+  return <TodoList />;
 }
