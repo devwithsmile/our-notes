@@ -276,3 +276,22 @@ test("independent cloud instances enforce edit conflicts and recheck revocation 
   assert.equal((await partner("/me")).data.user.role, "pending");
   delete process.env.SETUP_TOKEN;
 });
+
+test("compressed Blob responses do not cause false save conflicts", async () => {
+  const sdk = fakeBlob(emptyState());
+  const get = sdk.get;
+  const encodings = [];
+  sdk.get = async (path, options) => {
+    const result = await get(path, options);
+    const encoding = options.headers?.["Accept-Encoding"];
+    encodings.push(encoding);
+    // The actual Blob origin returns a weak HTTP ETag when it compresses JSON.
+    if (result && encoding !== "identity")
+      result.blob.etag = "W/" + result.blob.etag;
+    return result;
+  };
+  await cloud(sdk).update((state) => state.imports.push(importRecord("saved")));
+  assert.equal(sdk.inspect().imports.length, 1);
+  assert.equal(sdk.conflicts, 0);
+  assert.ok(encodings.every((value) => value === "identity"));
+});
