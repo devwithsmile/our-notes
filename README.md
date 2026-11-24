@@ -1,13 +1,15 @@
-# Together — shared to-do list
+# Together — shared wedding lists
 
-One list that everyone can see. Only you and people you approve can edit it.
+Simple tabs that everyone can see. Only you and people you approve can edit them.
 
-- Add a task, mark it done, rename it, or delete it.
+- **To-do list:** add a task, mark it done, rename it, or delete it.
+- **Sangeet:** add each person or group and their chosen song; edit or delete entries.
+- Switch tabs without losing unfinished entries.
 - Share the same link with your partner.
 - They choose **Request access**. You approve them under **Manage access**.
 - Saved changes appear on other devices automatically, usually within 5 seconds.
 
-No collections, notebooks, boards, or extra workspaces.
+Future sections use the same tab navigation in `components/SectionTabs.js`.
 
 ## Run locally
 
@@ -21,7 +23,7 @@ npm run dev
 
 Open **http://localhost:3000** and select **Set up list**. Create your owner account using the one-time `SETUP_TOKEN` in `.env.local`. After setup, you just sign in normally.
 
-Tasks and accounts are saved in `data/notes.json`. The existing filename is retained so earlier data is not lost. Previous notes appear as tasks with their text preserved. The data file and `.env.local` are excluded from Git.
+Tasks, Sangeet entries, and accounts are saved in `data/notes.json`. The existing filename is retained so earlier data is not lost. Previous notes appear as tasks with their text preserved. The data file and `.env.local` are excluded from Git.
 
 On the same Wi-Fi, your partner can open `http://YOUR-COMPUTER-LAN-IP:3000` while your computer and the app are running. To use it from anywhere, deploy to Vercel.
 
@@ -41,7 +43,7 @@ To copy an existing local list to an **empty** hosted store, put the Blob token 
 
 Permission checks happen on the server. Removing someone's editing access takes effect on their next change. Readers never receive password hashes or session records. Passwords are hashed, and accounts use secure session cookies on Vercel.
 
-Simultaneous saves cannot silently overwrite each other. If the same task changes on another device, your edit stays in the input so you can copy it or cancel to see the latest version. Local writes are locked and atomic; Blob writes use version checks.
+Simultaneous saves cannot silently overwrite each other. If the same task or Sangeet entry changes on another device, your edit stays in the input so you can copy it or cancel to see the latest version. Local writes are locked and atomic; Blob writes use version checks.
 
 For a local backup, stop the app and copy `data/notes.json`. For a hosted backup, download the private JSON through your Vercel dashboard. Keep backups private. The shared JSON file has a 4 MiB size limit and is intended for a small list. Blob operations count toward your Vercel usage.
 

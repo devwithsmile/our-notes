@@ -1,4 +1,6 @@
 "use client";
+import SectionTabs, { sections } from "./SectionTabs";
+import SangeetList from "./SangeetList";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
@@ -251,6 +253,7 @@ export default function TodoList() {
   const [data, setData] = useState({
     user: null,
     tasks: [],
+    sangeet: [],
     needsSetup: false,
     pendingCount: 0,
   });
@@ -262,6 +265,8 @@ export default function TodoList() {
   const [busy, setBusy] = useState(null),
     [editing, setEditing] = useState(null),
     [deleting, setDeleting] = useState(null);
+  const [activeSection, setActiveSection] = useState("tasks");
+  const section = sections.find((item) => item.id === activeSection);
   const [toast, setToast] = useState("");
   const timer = useRef(null),
     addInput = useRef(null),
@@ -437,12 +442,14 @@ export default function TodoList() {
         </div>
       </header>
       <main>
+        <SectionTabs active={activeSection} onChange={setActiveSection} />
         <section className="intro">
           <span className="eyebrow">A LITTLE LESS TO REMEMBER</span>
           <h1>
-            Our to-do list<span>.</span>
+            {section.title}
+            <span>.</span>
           </h1>
-          <p>One shared list. Let’s get things done together.</p>
+          <p>{section.description}</p>
         </section>
         <div className="access-bar">
           <span>
@@ -499,197 +506,225 @@ export default function TodoList() {
             </button>
           </div>
         )}
-        <section className="list-card" aria-label="Shared tasks">
-          <div className="list-heading">
-            <h2>
-              Things to do <span>{remaining}</span>
-            </h2>
-            <span className="sync-status">
-              {loading ? (
-                "Loading…"
-              ) : offline ? (
-                "Offline"
-              ) : (
-                <>
-                  <CheckCheck size={15} />
-                  Synced
-                </>
-              )}
-            </span>
-          </div>
-          {writable && (
-            <form className="add-task" onSubmit={add}>
-              <Plus size={21} />
-              <label className="sr-only" htmlFor="new-task">
-                New task
-              </label>
-              <input
-                id="new-task"
-                ref={addInput}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                maxLength={160}
-                placeholder="What needs to get done?"
-                disabled={busy === "new"}
-                autoComplete="off"
-              />
-              <button
-                type="submit"
-                className="button primary"
-                disabled={!text.trim() || !!busy}
-              >
-                {busy === "new" ? (
-                  <LoaderCircle size={17} className="spin" />
+        <div
+          id="panel-tasks"
+          role="tabpanel"
+          aria-labelledby="tab-tasks"
+          hidden={activeSection !== "tasks"}
+          tabIndex={0}
+        >
+          <section className="list-card" aria-label="Shared tasks">
+            <div className="list-heading">
+              <h2>
+                Things to do <span>{remaining}</span>
+              </h2>
+              <span className="sync-status">
+                {loading ? (
+                  "Loading…"
+                ) : offline ? (
+                  "Offline"
                 ) : (
-                  "Add task"
+                  <>
+                    <CheckCheck size={15} />
+                    Synced
+                  </>
                 )}
-              </button>
-            </form>
-          )}
-          {loading ? (
-            <div className="empty">
-              <LoaderCircle className="spin" size={25} />
-              <p>Loading your shared list…</p>
+              </span>
             </div>
-          ) : sorted.length ? (
-            <ul className="task-list">
-              {sorted.map((task) => (
-                <li
-                  className={`task-row ${task.completed ? "completed" : ""}`}
-                  key={task.id}
+            {writable && (
+              <form className="add-task" onSubmit={add}>
+                <Plus size={21} />
+                <label className="sr-only" htmlFor="new-task">
+                  New task
+                </label>
+                <input
+                  id="new-task"
+                  ref={addInput}
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  maxLength={160}
+                  placeholder="What needs to get done?"
+                  disabled={busy === "new"}
+                  autoComplete="off"
+                />
+                <button
+                  type="submit"
+                  className="button primary"
+                  disabled={!text.trim() || !!busy}
                 >
-                  <label className="task-check">
-                    <input
-                      type="checkbox"
-                      aria-label={`Mark ${task.text} as ${task.completed ? "not done" : "done"}`}
-                      checked={task.completed}
-                      disabled={!writable || !!busy || !!editing}
-                      onChange={() =>
-                        update(task, { completed: !task.completed })
-                      }
-                    />
-                    <span aria-hidden="true">
-                      {task.completed && <Check size={15} strokeWidth={2.5} />}
-                    </span>
-                  </label>
-                  {editing?.task.id === task.id ? (
-                    <form
-                      className="edit-task"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        update(editing.task, { text: editing.text });
-                      }}
-                    >
-                      <label className="sr-only" htmlFor={"edit-" + task.id}>
-                        Edit task
-                      </label>
+                  {busy === "new" ? (
+                    <LoaderCircle size={17} className="spin" />
+                  ) : (
+                    "Add task"
+                  )}
+                </button>
+              </form>
+            )}
+            {loading ? (
+              <div className="empty">
+                <LoaderCircle className="spin" size={25} />
+                <p>Loading your shared list…</p>
+              </div>
+            ) : sorted.length ? (
+              <ul className="task-list">
+                {sorted.map((task) => (
+                  <li
+                    className={`task-row ${task.completed ? "completed" : ""}`}
+                    key={task.id}
+                  >
+                    <label className="task-check">
                       <input
-                        id={"edit-" + task.id}
-                        value={editing.text}
-                        maxLength={160}
-                        autoFocus
-                        onChange={(e) =>
-                          setEditing({ ...editing, text: e.target.value })
+                        type="checkbox"
+                        aria-label={`Mark ${task.text} as ${task.completed ? "not done" : "done"}`}
+                        checked={task.completed}
+                        disabled={!writable || !!busy || !!editing}
+                        onChange={() =>
+                          update(task, { completed: !task.completed })
                         }
                       />
-                      <div>
-                        <button
-                          className="text-button"
-                          type="submit"
-                          disabled={!!busy || !writable || !editing.text.trim()}
-                        >
-                          Save
-                        </button>
-                        <button
-                          className="text-button muted"
-                          type="button"
-                          disabled={!!busy}
-                          onClick={() => {
-                            setEditing(null);
-                            setError("");
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <div className="task-content">
-                      <span className="task-title">{task.text}</span>
-                      {task.details && (
-                        <p className="task-details">{task.details}</p>
-                      )}
-                      <small>Added by {task.author}</small>
-                    </div>
-                  )}
-                  {writable &&
-                    !editing &&
-                    (deleting === task.id ? (
-                      <div className="delete-confirm">
-                        <span>Delete?</span>
-                        <button
-                          className="text-button danger"
-                          disabled={!!busy}
-                          onClick={() => update(task, {}, "DELETE")}
-                        >
-                          Yes
-                        </button>
-                        <button
-                          className="text-button muted"
-                          onClick={() => setDeleting(null)}
-                        >
-                          No
-                        </button>
-                      </div>
+                      <span aria-hidden="true">
+                        {task.completed && (
+                          <Check size={15} strokeWidth={2.5} />
+                        )}
+                      </span>
+                    </label>
+                    {editing?.task.id === task.id ? (
+                      <form
+                        className="edit-task"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          update(editing.task, { text: editing.text });
+                        }}
+                      >
+                        <label className="sr-only" htmlFor={"edit-" + task.id}>
+                          Edit task
+                        </label>
+                        <input
+                          id={"edit-" + task.id}
+                          value={editing.text}
+                          maxLength={160}
+                          autoFocus
+                          onChange={(e) =>
+                            setEditing({ ...editing, text: e.target.value })
+                          }
+                        />
+                        <div>
+                          <button
+                            className="text-button"
+                            type="submit"
+                            disabled={
+                              !!busy || !writable || !editing.text.trim()
+                            }
+                          >
+                            Save
+                          </button>
+                          <button
+                            className="text-button muted"
+                            type="button"
+                            disabled={!!busy}
+                            onClick={() => {
+                              setEditing(null);
+                              setError("");
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
                     ) : (
-                      <div className="task-actions">
-                        <button
-                          className="icon-button"
-                          aria-label={`Edit ${task.text}`}
-                          disabled={!!busy}
-                          onClick={() => {
-                            setEditing({ task, text: task.text });
-                            setDeleting(null);
-                            setError("");
-                          }}
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          className="icon-button delete-button"
-                          aria-label={`Delete ${task.text}`}
-                          disabled={!!busy}
-                          onClick={() => setDeleting(task.id)}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                      <div className="task-content">
+                        <span className="task-title">{task.text}</span>
+                        {task.details && (
+                          <p className="task-details">{task.details}</p>
+                        )}
+                        <small>Added by {task.author}</small>
                       </div>
-                    ))}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="empty">
-              <span className="empty-icon">
-                <ClipboardList size={30} strokeWidth={1.5} />
+                    )}
+                    {writable &&
+                      !editing &&
+                      (deleting === task.id ? (
+                        <div className="delete-confirm">
+                          <span>Delete?</span>
+                          <button
+                            className="text-button danger"
+                            disabled={!!busy}
+                            onClick={() => update(task, {}, "DELETE")}
+                          >
+                            Yes
+                          </button>
+                          <button
+                            className="text-button muted"
+                            onClick={() => setDeleting(null)}
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="task-actions">
+                          <button
+                            className="icon-button"
+                            aria-label={`Edit ${task.text}`}
+                            disabled={!!busy}
+                            onClick={() => {
+                              setEditing({ task, text: task.text });
+                              setDeleting(null);
+                              setError("");
+                            }}
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            className="icon-button delete-button"
+                            aria-label={`Delete ${task.text}`}
+                            disabled={!!busy}
+                            onClick={() => setDeleting(task.id)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="empty">
+                <span className="empty-icon">
+                  <ClipboardList size={30} strokeWidth={1.5} />
+                </span>
+                <h3>A fresh start.</h3>
+                <p>
+                  {writable
+                    ? "Add your first task above. You’ll both see it here."
+                    : "No tasks yet. Anything added to this list will appear here."}
+                </p>
+              </div>
+            )}
+            <div className="list-footer">
+              <span>
+                {remaining} {remaining === 1 ? "task" : "tasks"} left
               </span>
-              <h3>A fresh start.</h3>
-              <p>
-                {writable
-                  ? "Add your first task above. You’ll both see it here."
-                  : "No tasks yet. Anything added to this list will appear here."}
-              </p>
+              <span>{data.tasks.length - remaining} completed</span>
             </div>
-          )}
-          <div className="list-footer">
-            <span>
-              {remaining} {remaining === 1 ? "task" : "tasks"} left
-            </span>
-            <span>{data.tasks.length - remaining} completed</span>
-          </div>
-        </section>
+          </section>
+        </div>
+        <div
+          id="panel-sangeet"
+          role="tabpanel"
+          aria-labelledby="tab-sangeet"
+          hidden={activeSection !== "sangeet"}
+          tabIndex={0}
+        >
+          <SangeetList
+            entries={data.sangeet || []}
+            writable={writable}
+            loading={loading}
+            offline={offline}
+            api={api}
+            refresh={refresh}
+          />
+        </div>
         <p className="page-footer">
-          Same list, wherever you are. Changes appear automatically.
+          Together, wherever you are. Changes appear automatically.
         </p>
       </main>
       {["auth", "request"].includes(modal) && (

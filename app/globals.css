@@ -776,3 +776,154 @@ dialog small {
     transition: none !important;
   }
 }
+
+.section-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid #dfe5d8;
+  margin-bottom: 32px;
+  overflow-x: auto;
+  padding: 4px 3px 0;
+}
+.section-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  padding: 13px 18px;
+  min-height: 48px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #71816b;
+  font-size: 14px;
+  font-weight: 500;
+}
+.section-tabs button[aria-selected="true"] {
+  color: #365c45;
+  border-bottom-color: #365c45;
+  background: #edf2e6;
+  border-radius: 8px 8px 0 0;
+}
+.sangeet-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 18px;
+  margin: 0 25px 16px;
+  border: 1px solid #e2e7da;
+  border-radius: 9px;
+  background: #f9fbf6;
+}
+.sangeet-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #617455;
+  min-width: 0;
+}
+.sangeet-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid #dbe3d1;
+  border-radius: 7px;
+  background: white;
+  color: #334e36;
+  font-size: 16px;
+}
+.sangeet-form input::placeholder {
+  color: #87947e;
+  font-size: 13px;
+}
+.sangeet-form .button {
+  min-height: 44px;
+}
+.sangeet-list {
+  margin: 0;
+  padding: 0 25px;
+  list-style: none;
+}
+.sangeet-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 0;
+  border-bottom: 1px solid #edf0e8;
+}
+.sangeet-row:last-child {
+  border-bottom: 0;
+}
+.song-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: #f5efe3;
+  color: #a4864e;
+}
+.performance-details {
+  flex: 1;
+  min-width: 0;
+}
+.performance-details strong,
+.performance-details span {
+  display: block;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.performance-details strong {
+  font-size: 16px;
+  font-weight: 500;
+}
+.performance-details span {
+  font-size: 14px;
+  color: #7b876f;
+  margin-top: 3px;
+}
+.sangeet-edit {
+  margin: 0;
+  width: 100%;
+}
+.sangeet-edit-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.sangeet-message {
+  margin: 12px 25px;
+}
+@media (max-width: 600px) {
+  .section-tabs {
+    margin-bottom: 26px;
+  }
+  .sangeet-form {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0 15px 12px;
+    padding: 15px;
+  }
+  .sangeet-form > .button {
+    justify-self: start;
+  }
+  .sangeet-list {
+    padding: 0 18px;
+  }
+  .sangeet-edit {
+    margin: 0;
+  }
+  .sangeet-row {
+    gap: 10px;
+  }
+  .sangeet-message {
+    margin: 12px 15px;
+  }
+  .sangeet-card .task-actions .icon-button {
+    width: 36px;
+    height: 44px;
+  }
+}

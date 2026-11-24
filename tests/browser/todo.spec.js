@@ -6,6 +6,7 @@ test("simple shared checklist works for owner, approved partner, and public read
   page,
   browser,
 }) => {
+  test.setTimeout(120000);
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
@@ -87,6 +88,83 @@ test("simple shared checklist works for owner, approved partner, and public read
   await expect(
     page.getByText("Water the balcony plants", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("tab", { name: "Sangeet", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Alex & Jamie");
+  await page
+    .getByRole("textbox", { name: "Song name", exact: true })
+    .fill("Kala Chashma");
+  await page.getByRole("tab", { name: "To-do list", exact: true }).click();
+  await expect(
+    page.getByText("Water the balcony plants", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Sangeet", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Song name", exact: true }),
+  ).toHaveValue("Kala Chashma");
+  await page.getByRole("button", { name: "Add person", exact: true }).click();
+  await expect(page.getByText("Kala Chashma", { exact: true })).toBeVisible();
+  await partner.getByRole("tab", { name: "Sangeet", exact: true }).click();
+  await expect(partner.getByText("Kala Chashma", { exact: true })).toBeVisible({
+    timeout: 12000,
+  });
+  await partner
+    .getByRole("button", { name: "Edit Alex & Jamie", exact: true })
+    .click();
+  await partner
+    .locator(".sangeet-edit")
+    .getByRole("textbox", { name: "Song name", exact: true })
+    .fill("London Thumakda");
+  await partner.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("London Thumakda", { exact: true })).toBeVisible({
+    timeout: 12000,
+  });
+  const publicContext = await browser.newContext();
+  const publicPage = await publicContext.newPage();
+  await publicPage.goto("http://localhost:3100");
+  await publicPage.getByRole("tab", { name: "Sangeet", exact: true }).click();
+  await expect(
+    publicPage.getByText("London Thumakda", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    publicPage.getByRole("button", { name: "Add person", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    publicPage.getByRole("button", { name: "Edit Alex & Jamie", exact: true }),
+  ).toHaveCount(0);
+  await publicContext.close();
+  await mkdir("test-results/screenshots", { recursive: true });
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.screenshot({
+      path: `test-results/screenshots/sangeet-${width}.png`,
+      fullPage: true,
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await page.getByRole("tab", { name: "Sangeet", exact: true }).focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(
+    page.getByRole("tab", { name: "To-do list", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("End");
+  await expect(
+    page.getByRole("tab", { name: "Sangeet", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page
+    .getByRole("button", { name: "Delete Alex & Jamie", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Yes", exact: true }).click();
+  await expect(page.getByText("London Thumakda", { exact: true })).toHaveCount(
+    0,
+  );
+  await page.getByRole("tab", { name: "To-do list", exact: true }).click();
+  await partner.getByRole("tab", { name: "To-do list", exact: true }).click();
   await mkdir("test-results/screenshots", { recursive: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.screenshot({
@@ -135,6 +213,10 @@ test("simple shared checklist works for owner, approved partner, and public read
       ),
     ).toBe(true);
   }
+  await partner.getByRole("tab", { name: "Sangeet", exact: true }).click();
+  await expect(
+    partner.getByRole("button", { name: "Add person", exact: true }),
+  ).toHaveCount(0);
   await partnerContext.close();
   expect(errors).toEqual([]);
 });

@@ -523,3 +523,77 @@ test("existing notes remain readable as tasks with their original details", asyn
   });
   assert.equal((await owner.call("/list")).data.tasks[0].details, draft.body);
 });
+
+test("sangeet: legacy JSON, public read, approvals, validation, concurrent edits and separate tasks", async () => {
+  await clear();
+  const { owner, partner, user } = await approvedPair();
+  const visitor = client();
+  const pending = client();
+  await pending.call("/register", "POST", {
+    name: "Guest",
+    username: "guest",
+    password: "guest-test-password",
+  });
+  await owner.call("/tasks", "POST", { text: "Buy wedding outfits" });
+  // Existing deployed notebooks predate this collection.
+  await db.update((state) => {
+    delete state.sangeet;
+  });
+  assert.deepEqual((await visitor.call("/list")).data.sangeet, []);
+  const draft = { name: "Alex & Jamie", song: "Kala Chashma" };
+  for (const reader of [visitor, pending])
+    assert.equal((await reader.call("/sangeet", "POST", draft)).status, 403);
+  for (const invalid of [
+    { name: "", song: "Song" },
+    { name: "Alex", song: "  " },
+    { name: "Alex", song: "x".repeat(161) },
+  ])
+    assert.equal((await owner.call("/sangeet", "POST", invalid)).status, 400);
+  const created = await partner.call("/sangeet", "POST", draft);
+  assert.equal(created.status, 201);
+  const { id, version } = created.data;
+  const list = (await visitor.call("/list")).data;
+  assert.deepEqual(list.sangeet, [{ id, ...draft, version }]);
+  assert.equal(list.tasks.length, 1);
+  assert.equal(list.tasks[0].text, "Buy wedding outfits");
+  for (const reader of [visitor, pending]) {
+    assert.equal(
+      (await reader.call(`/sangeet/${id}`, "PUT", { ...draft, version }))
+        .status,
+      403,
+    );
+    assert.equal(
+      (await reader.call(`/sangeet/${id}`, "DELETE", { version })).status,
+      403,
+    );
+  }
+  const changes = await Promise.all([
+    owner.call(`/sangeet/${id}`, "PUT", {
+      ...draft,
+      song: "London Thumakda",
+      version,
+    }),
+    partner.call(`/sangeet/${id}`, "PUT", {
+      ...draft,
+      song: "Gallan Goodiyaan",
+      version,
+    }),
+  ]);
+  assert.deepEqual(changes.map((r) => r.status).sort(), [200, 409]);
+  assert.equal(
+    (await owner.call(`/sangeet/${id}`, "DELETE", { version })).status,
+    409,
+  );
+  await owner.call(`/users/${user.id}`, "PUT", { role: "pending" });
+  assert.equal(
+    (await partner.call(`/sangeet/${id}`, "PUT", { ...draft, version: 2 }))
+      .status,
+    403,
+  );
+  assert.equal(
+    (await owner.call(`/sangeet/${id}`, "DELETE", { version: 2 })).status,
+    200,
+  );
+  assert.equal((await visitor.call("/list")).data.tasks.length, 1);
+  assert.deepEqual((await visitor.call("/list")).data.sangeet, []);
+});
