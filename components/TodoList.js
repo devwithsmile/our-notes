@@ -60,6 +60,96 @@ function Dialog({ title, children, close }) {
     </dialog>
   );
 }
+function ResetPassword({ ownerRecovery = false, person, cancel, done }) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function submit(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = Object.fromEntries(new FormData(form));
+    if (data.newPassword !== data.confirmPassword) {
+      setError("The passwords do not match.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await api(
+        ownerRecovery ? "/recover" : `/users/${person.id}/password`,
+        ownerRecovery ? "POST" : "PUT",
+        {
+          newPassword: data.newPassword,
+          ...(ownerRecovery ? { setupToken: data.setupToken } : {}),
+        },
+      );
+      form.reset();
+      await done();
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <p className="dialog-description">
+        {ownerRecovery
+          ? "Use your private setup token to choose a new owner password. You’ll be signed in and previous sessions will be signed out. Other users should ask the owner to reset their password."
+          : `Choose a new password for ${person.name} (@${person.username}) and share it with them privately. Their existing sessions will be signed out. Editing access stays the same.`}
+      </p>
+      <form onSubmit={submit}>
+        {ownerRecovery && (
+          <label>
+            Setup token
+            <input
+              name="setupToken"
+              type="password"
+              required
+              autoComplete="off"
+            />
+          </label>
+        )}
+        <label>
+          New password
+          <input
+            name="newPassword"
+            type="password"
+            minLength={10}
+            maxLength={256}
+            required
+            autoComplete="new-password"
+          />
+        </label>
+        <label>
+          Confirm new password
+          <input
+            name="confirmPassword"
+            type="password"
+            minLength={10}
+            maxLength={256}
+            required
+            autoComplete="new-password"
+          />
+        </label>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <button className="button primary full" disabled={busy}>
+          {busy ? "Resetting…" : "Reset password"}
+        </button>
+      </form>
+      <button
+        className="text-button auth-switch"
+        disabled={busy}
+        onClick={cancel}
+      >
+        {ownerRecovery ? "Back to sign in" : "Cancel"}
+      </button>
+    </>
+  );
+}
 function SignIn({ setup, initialMode, close, done }) {
   const [mode, setMode] = useState(setup ? "setup" : initialMode || "login");
   const [busy, setBusy] = useState(false),
@@ -68,6 +158,7 @@ function SignIn({ setup, initialMode, close, done }) {
     setup: "Create your owner account",
     login: "Sign in",
     register: "Request editing access",
+    recover: "Reset owner password",
   };
   async function submit(e) {
     e.preventDefault();
@@ -86,6 +177,16 @@ function SignIn({ setup, initialMode, close, done }) {
       setBusy(false);
     }
   }
+  if (mode === "recover")
+    return (
+      <Dialog title={titles[mode]} close={close}>
+        <ResetPassword
+          ownerRecovery
+          cancel={() => setMode("login")}
+          done={done}
+        />
+      </Dialog>
+    );
   return (
     <Dialog title={titles[mode]} close={() => !busy && close()}>
       <p className="dialog-description">
@@ -95,7 +196,7 @@ function SignIn({ setup, initialMode, close, done }) {
             ? "The owner will approve your request. Until then, you can view everything."
             : "Sign in to edit the shared list."}
       </p>
-      <form onSubmit={submit}>
+      <form key={mode} onSubmit={submit}>
         {mode !== "login" && (
           <label>
             Your name
@@ -137,7 +238,8 @@ function SignIn({ setup, initialMode, close, done }) {
               autoComplete="off"
             />
             <small>
-              One-time key from your .env.local file or Vercel settings.
+              Private key from your .env.local file or Vercel settings. Keep it
+              for owner password recovery.
             </small>
           </label>
         )}
@@ -151,9 +253,22 @@ function SignIn({ setup, initialMode, close, done }) {
           {titles[mode]}
         </button>
       </form>
+      {mode === "login" && (
+        <button
+          className="text-button auth-switch"
+          disabled={busy}
+          onClick={() => {
+            setMode("recover");
+            setError("");
+          }}
+        >
+          Forgot password?
+        </button>
+      )}
       {!setup && (
         <button
           className="text-button auth-switch"
+          disabled={busy}
           onClick={() => {
             setMode(mode === "login" ? "register" : "login");
             setError("");
@@ -168,6 +283,8 @@ function SignIn({ setup, initialMode, close, done }) {
   );
 }
 function Access({ close, updated }) {
+  const [resetPerson, setResetPerson] = useState(null),
+    [success, setSuccess] = useState("");
   const [people, setPeople] = useState(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(null);
@@ -183,12 +300,12 @@ function Access({ close, updated }) {
     const timer = setInterval(load, 5000);
     return () => clearInterval(timer);
   }, [load]);
-  async function change(person) {
+  async function change(person, role) {
     setBusy(person.id);
     setError("");
     try {
       await api("/users/" + person.id, "PUT", {
-        role: person.role === "writer" ? "pending" : "writer",
+        role,
       });
       await load();
       updated();
@@ -199,52 +316,104 @@ function Access({ close, updated }) {
     }
   }
   return (
-    <Dialog title="Who can edit?" close={close}>
-      <p className="dialog-description">
-        Everyone can view the list. You choose who can make changes.
-      </p>
-      {!people && !error && <p className="muted">Loading people…</p>}
-      {people?.map((person) => (
-        <div className="person" key={person.id}>
-          <span className="avatar">
-            {person.name.slice(0, 1).toUpperCase()}
-          </span>
-          <div>
-            <strong>{person.name}</strong>
-            <small>
-              @{person.username} ·{" "}
-              {person.role === "owner"
-                ? "You · Owner"
-                : person.role === "writer"
-                  ? "Can edit"
-                  : "Waiting for approval"}
-            </small>
-          </div>
-          {person.role !== "owner" && (
-            <button
-              className={`button ${person.role === "pending" ? "primary" : "secondary"}`}
-              onClick={() => change(person)}
-              disabled={busy === person.id}
-            >
-              {busy === person.id
-                ? "Saving…"
-                : person.role === "writer"
-                  ? "Remove access"
-                  : "Approve"}
-            </button>
+    <Dialog
+      title={
+        resetPerson ? `Reset password for ${resetPerson.name}` : "Who can edit?"
+      }
+      close={close}
+    >
+      {resetPerson ? (
+        <ResetPassword
+          person={resetPerson}
+          cancel={() => setResetPerson(null)}
+          done={async () => {
+            setSuccess(
+              `Password reset for ${resetPerson.name}. Share the new password with them privately.`,
+            );
+            setResetPerson(null);
+            await load();
+          }}
+        />
+      ) : (
+        <>
+          {success && (
+            <p role="status" className="dialog-description">
+              {success}
+            </p>
           )}
-        </div>
-      ))}
-      {people?.length === 1 && (
-        <p className="invite-help">
-          Share the list’s link. Your partner can sign in and request editing
-          access here.
-        </p>
-      )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
+          <p className="dialog-description">
+            Everyone can view the list. You choose who can make changes.
+          </p>
+          {!people && !error && <p className="muted">Loading people…</p>}
+          {people?.map((person) => (
+            <div className="person" key={person.id}>
+              <span className="avatar">
+                {person.name.slice(0, 1).toUpperCase()}
+              </span>
+              <div>
+                <strong>{person.name}</strong>
+                <small>
+                  @{person.username} ·{" "}
+                  {person.role === "owner"
+                    ? "You · Owner"
+                    : person.role === "writer"
+                      ? "Can edit"
+                      : person.role === "denied"
+                        ? "Access denied"
+                        : "Waiting for approval"}
+                </small>
+              </div>
+              {person.role !== "owner" && (
+                <div className="person-actions">
+                  <button
+                    className={`button ${person.role === "writer" ? "secondary" : "primary"}`}
+                    onClick={() =>
+                      change(
+                        person,
+                        person.role === "writer" ? "pending" : "writer",
+                      )
+                    }
+                    disabled={!!busy}
+                  >
+                    {person.role === "writer" ? "Remove access" : "Approve"}
+                  </button>
+                  {person.role === "pending" && (
+                    <button
+                      className="button secondary danger"
+                      disabled={!!busy}
+                      onClick={() => change(person, "denied")}
+                    >
+                      Deny
+                    </button>
+                  )}
+                  <button
+                    className="text-button"
+                    disabled={!!busy}
+                    onClick={() => {
+                      setResetPerson(person);
+                      setSuccess("");
+                      setError("");
+                    }}
+                    aria-label={`Reset password for ${person.name}`}
+                  >
+                    Reset password
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+          {people?.length === 1 && (
+            <p className="invite-help">
+              Share the list’s link. Your partner can sign in and request
+              editing access here.
+            </p>
+          )}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+        </>
       )}
     </Dialog>
   );
@@ -456,11 +625,13 @@ export default function TodoList() {
             <Users size={17} />
             {data.needsSetup
               ? "Set up your list to get started."
-              : data.user?.role === "pending"
-                ? "Your editing request is waiting for approval."
-                : writable
-                  ? "You can edit this list."
-                  : "Everyone can view. Editing is by permission."}
+              : data.user?.role === "denied"
+                ? "Your editing request was denied. You can still view everything."
+                : data.user?.role === "pending"
+                  ? "Your editing request is waiting for approval."
+                  : writable
+                    ? "You can edit this list."
+                    : "Everyone can view. Editing is by permission."}
           </span>
           {data.needsSetup ? (
             <button className="text-button" onClick={() => setModal("auth")}>

@@ -21,7 +21,7 @@ npm run setup:key
 npm run dev
 ```
 
-Open **http://localhost:3000** and select **Set up list**. Create your owner account using the one-time `SETUP_TOKEN` in `.env.local`. After setup, you just sign in normally.
+Open **http://localhost:3000** and select **Set up list**. Create your owner account using the private `SETUP_TOKEN` in `.env.local`. After setup, you just sign in normally.
 
 Tasks, Sangeet entries, and accounts are saved in `data/notes.json`. The existing filename is retained so earlier data is not lost. Previous notes appear as tasks with their text preserved. The data file and `.env.local` are excluded from Git.
 
@@ -38,6 +38,13 @@ On the same Wi-Fi, your partner can open `http://YOUR-COMPUTER-LAN-IP:3000` whil
 Vercel stores the JSON in private Blob storage because deployment files cannot persist edits. No SQL database is needed. See [.env.example](.env.example) for optional configuration. Keep preview and production stores separate. Do not set `NOTES_FILE` on Vercel.
 
 To copy an existing local list to an **empty** hosted store, put the Blob token in `.env.local`, then run `npm run storage:upload`. Existing hosted data is never overwritten. If you want local development to keep using a local file despite that token, set `NOTES_FILE=./data/notes.json`.
+
+## Password recovery and access requests
+
+- **Owner:** open **Sign in → Forgot password?**, enter the server’s `SETUP_TOKEN`, and choose and confirm a new password. This signs you in and signs out previous owner sessions. The token stays private; it also serves as the owner recovery key.
+- **Other users:** the owner opens **Manage access → Reset password** next to the person, chooses a new password, and shares it privately. Existing sessions are signed out; editing permissions do not change.
+- **Requests:** choose **Approve** or **Deny** in **Manage access**. Denied users can still read the lists and see their denied status. They no longer count as pending; the owner can approve them later.
+- Recovery attempts are rate limited. Missing or short server setup tokens disable owner recovery.
 
 ## Data and permissions
 

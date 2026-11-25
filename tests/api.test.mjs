@@ -597,3 +597,183 @@ test("sangeet: legacy JSON, public read, approvals, validation, concurrent edits
   assert.equal((await visitor.call("/list")).data.tasks.length, 1);
   assert.deepEqual((await visitor.call("/list")).data.sangeet, []);
 });
+
+test("owner recovery requires setup token, revokes old sessions, preserves data and signs in", async () => {
+  await clear();
+  const { owner, partner } = await approvedPair();
+  await owner.call("/tasks", "POST", { text: "Keep this task" });
+  const recovery = client();
+  const next = "new-owner-password";
+  assert.equal(
+    (
+      await recovery.call("/recover", "POST", {
+        setupToken: "wrong",
+        newPassword: next,
+      })
+    ).status,
+    403,
+  );
+  assert.equal((await owner.call("/me")).data.user.role, "owner");
+  assert.equal(
+    (
+      await recovery.call("/recover", "POST", {
+        setupToken: credentials.setupToken,
+        newPassword: "short",
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await recovery.call(
+        "/recover",
+        "POST",
+        { setupToken: credentials.setupToken, newPassword: next },
+        { Origin: "https://evil.example" },
+      )
+    ).status,
+    403,
+  );
+  const secret = process.env.SETUP_TOKEN;
+  try {
+    delete process.env.SETUP_TOKEN;
+    assert.equal(
+      (
+        await recovery.call("/recover", "POST", {
+          setupToken: "",
+          newPassword: next,
+        })
+      ).status,
+      503,
+    );
+  } finally {
+    process.env.SETUP_TOKEN = secret;
+  }
+  const result = await recovery.call("/recover", "POST", {
+    setupToken: credentials.setupToken,
+    newPassword: next,
+  });
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.data, { ok: true });
+  assert.equal((await recovery.call("/me")).data.user.role, "owner");
+  assert.equal((await owner.call("/me")).data.user, null);
+  assert.equal(
+    (await owner.call("/tasks", "POST", { text: "Stale session" })).status,
+    403,
+  );
+  assert.equal((await partner.call("/me")).data.user.role, "writer");
+  assert.equal(
+    (await recovery.call("/list")).data.tasks[0].text,
+    "Keep this task",
+  );
+  const login = client();
+  assert.equal((await login.call("/login", "POST", credentials)).status, 401);
+  assert.equal(
+    (await login.call("/login", "POST", { ...credentials, password: next }))
+      .status,
+    200,
+  );
+  assert.ok(!(await db.read()).users.some((u) => u.password === next));
+});
+
+test("owner recovery attempts are limited and persist across clients", async () => {
+  await clear();
+  await client().call("/setup", "POST", credentials);
+  for (let i = 0; i < 10; i++)
+    assert.equal(
+      (
+        await client().call("/recover", "POST", {
+          setupToken: "wrong",
+          newPassword: "new-test-password",
+        })
+      ).status,
+      403,
+    );
+  assert.equal(
+    (
+      await client().call("/recover", "POST", {
+        setupToken: credentials.setupToken,
+        newPassword: "new-test-password",
+      })
+    ).status,
+    429,
+  );
+});
+
+test("owner resets others without granting access; denial removes pending badge and blocks edits", async () => {
+  await clear();
+  const { owner, partner, user } = await approvedPair();
+  const visitor = client();
+  const ownerId = (await owner.call("/me")).data.user.id;
+  const path = `/users/${user.id}/password`;
+  const newPassword = "partner-reset-password";
+  for (const reader of [visitor, partner]) {
+    assert.equal((await reader.call(path, "PUT", { newPassword })).status, 403);
+    assert.equal(
+      (await reader.call(`/users/${user.id}`, "PUT", { role: "denied" }))
+        .status,
+      403,
+    );
+  }
+  assert.equal(
+    (await owner.call(`/users/${ownerId}/password`, "PUT", { newPassword }))
+      .status,
+    404,
+  );
+  assert.equal(
+    (await owner.call(`/users/${ownerId}`, "PUT", { role: "denied" })).status,
+    404,
+  );
+  assert.equal(
+    (await owner.call(path, "PUT", { newPassword: "short" })).status,
+    400,
+  );
+  assert.equal((await partner.call("/me")).data.user.role, "writer");
+  assert.equal((await owner.call(path, "PUT", { newPassword })).status, 200);
+  assert.equal((await partner.call("/me")).data.user, null);
+  assert.equal(
+    (await partner.call("/login", "POST", partnerCredentials)).status,
+    401,
+  );
+  assert.equal(
+    (
+      await partner.call("/login", "POST", {
+        ...partnerCredentials,
+        password: newPassword,
+      })
+    ).status,
+    200,
+  );
+  assert.equal((await partner.call("/me")).data.user.role, "writer");
+  await owner.call(`/users/${user.id}`, "PUT", { role: "pending" });
+  assert.equal((await owner.call("/list")).data.pendingCount, 1);
+  assert.equal(
+    (await owner.call(`/users/${user.id}`, "PUT", { role: "denied" })).status,
+    200,
+  );
+  assert.equal((await owner.call("/list")).data.pendingCount, 0);
+  assert.equal((await partner.call("/me")).data.user.role, "denied");
+  assert.equal((await partner.call("/list")).status, 200);
+  assert.equal(
+    (await partner.call("/tasks", "POST", { text: "No" })).status,
+    403,
+  );
+  assert.equal(
+    (await partner.call("/sangeet", "POST", { name: "No", song: "No" })).status,
+    403,
+  );
+  assert.equal((await owner.call(path, "PUT", { newPassword })).status, 200);
+  await partner.call("/login", "POST", {
+    ...partnerCredentials,
+    password: newPassword,
+  });
+  assert.equal((await partner.call("/me")).data.user.role, "denied");
+  assert.equal(
+    (await owner.call(`/users/${user.id}`, "PUT", { role: "writer" })).status,
+    200,
+  );
+  assert.equal(
+    (await partner.call("/tasks", "POST", { text: "Allowed again" })).status,
+    201,
+  );
+});

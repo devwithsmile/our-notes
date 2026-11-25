@@ -217,6 +217,94 @@ test("simple shared checklist works for owner, approved partner, and public read
   await expect(
     partner.getByRole("button", { name: "Add person", exact: true }),
   ).toHaveCount(0);
+  // Owner recovery works while signed out, without knowing the old password.
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Forgot password?", exact: true })
+    .click();
+  await page.getByLabel("Setup token", { exact: true }).fill("incorrect-token");
+  await page
+    .getByLabel("New password", { exact: true })
+    .fill("recovered-owner-password");
+  await page
+    .getByLabel("Confirm new password", { exact: true })
+    .fill("different-password");
+  await page
+    .getByRole("button", { name: "Reset password", exact: true })
+    .click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toHaveText(
+    "The passwords do not match.",
+  );
+  await page
+    .getByLabel("Confirm new password", { exact: true })
+    .fill("recovered-owner-password");
+  await page
+    .getByRole("button", { name: "Reset password", exact: true })
+    .click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toHaveText(
+    "The setup token is incorrect.",
+  );
+  await page.getByLabel("Setup token", { exact: true }).fill(key);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "test-results/screenshots/owner-recovery.png",
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Reset password", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await page.getByRole("button", { name: /Manage access/ }).click();
+  await page.getByRole("button", { name: "Deny", exact: true }).click();
+  await expect(page.getByText(/@jamie · Access denied/)).toBeVisible();
+  await expect(
+    partner.getByText(
+      "Your editing request was denied. You can still view everything.",
+    ),
+  ).toBeVisible({ timeout: 12000 });
+  await page.screenshot({
+    path: "test-results/screenshots/manage-access.png",
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Reset password for Jamie", exact: true })
+    .click();
+  await page
+    .getByLabel("New password", { exact: true })
+    .fill("reset-partner-password");
+  await page
+    .getByLabel("Confirm new password", { exact: true })
+    .fill("reset-partner-password");
+  await page
+    .getByRole("button", { name: "Reset password", exact: true })
+    .click();
+  await expect(page.getByRole("dialog").getByRole("status")).toContainText(
+    "Password reset for Jamie.",
+  );
+  await expect(
+    partner.getByRole("button", { name: "Sign in", exact: true }),
+  ).toBeVisible({ timeout: 12000 });
+  await partner.getByRole("button", { name: "Sign in", exact: true }).click();
+  await partner.getByLabel("Username", { exact: true }).fill("jamie");
+  await partner
+    .getByLabel("Password", { exact: true })
+    .fill("reset-partner-password");
+  await partner
+    .getByRole("dialog")
+    .getByRole("button", { name: "Sign in", exact: true })
+    .click();
+  await expect(partner.getByRole("dialog")).not.toBeVisible();
+  await expect(
+    partner.getByText(
+      "Your editing request was denied. You can still view everything.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(
+    partner.getByRole("button", { name: "Add person", exact: true }),
+  ).toBeVisible({ timeout: 12000 });
+  await page.getByRole("button", { name: "Close", exact: true }).click();
   await partnerContext.close();
   expect(errors).toEqual([]);
 });

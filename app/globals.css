@@ -927,3 +927,15 @@ dialog small {
     height: 44px;
   }
 }
+
+.person {
+  flex-wrap: wrap;
+}
+.person > .person-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex: 0 0 100%;
+  padding-left: 46px;
+}
