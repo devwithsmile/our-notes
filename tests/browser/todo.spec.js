@@ -196,6 +196,33 @@ test("simple shared checklist works for owner, approved partner, and public read
   await expect(
     partner.getByText("Private wedding guest updated", { exact: true }),
   ).toBeVisible({ timeout: 12000 });
+  await page
+    .getByRole("textbox", { name: "Guest name", exact: true })
+    .fill("Aasish");
+  await page
+    .getByRole("button", { name: "Add accompanying guest", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Add accompanying guest", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Add guest", exact: true }).click();
+  await expect(page.getByText("Aasish + 2", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Our guests 4 people", exact: true }),
+  ).toBeVisible();
+  await expect(
+    partner.getByRole("heading", { name: "Our guests 4 people", exact: true }),
+  ).toBeVisible({ timeout: 12000 });
+  await page.getByRole("button", { name: "Edit Aasish", exact: true }).click();
+  await page
+    .locator(".entry-edit")
+    .getByRole("button", { name: "Add accompanying guest", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Aasish + 3", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Our guests 5 people", exact: true }),
+  ).toBeVisible();
   await mkdir("test-results/screenshots", { recursive: true });
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
@@ -212,6 +239,15 @@ test("simple shared checklist works for owner, approved partner, and public read
       ).toBe(true);
     }
   }
+  await page.getByRole("tab", { name: "Sangeet", exact: true }).click();
+  await page.getByRole("tab", { name: "Guest list", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Delete Aasish", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Yes", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Our guests 1 person", exact: true }),
+  ).toBeVisible();
   await page.getByRole("tab", { name: "Sangeet", exact: true }).click();
   const publicContext = await browser.newContext();
   const publicPage = await publicContext.newPage();

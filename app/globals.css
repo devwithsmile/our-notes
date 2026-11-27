@@ -981,7 +981,7 @@ dialog small {
   justify-self: start;
 }
 .entry-form-guests {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 140px auto;
 }
 .entry-edit {
   margin: 0;
@@ -1062,4 +1062,23 @@ select:focus-visible {
     width: 36px;
     height: 44px;
   }
+}
+
+.guest-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.guest-stepper .icon-button {
+  flex-shrink: 0;
+  width: 30px;
+  height: 44px;
+  border: 1px solid #dbe3d1;
+  background: white;
+  color: #365c45;
+  font-size: 20px;
+}
+.guest-stepper input {
+  text-align: center;
+  padding: 11px 2px;
 }

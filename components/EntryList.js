@@ -10,7 +10,12 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { songCategories, linkCategories } from "../lib/lists.mjs";
+import {
+  MAX_PLUS_ONES,
+  guestTotal,
+  songCategories,
+  linkCategories,
+} from "../lib/lists.mjs";
 
 const configurations = {
   songs: {
@@ -61,6 +66,52 @@ function Fields({ kind, value, change, disabled }) {
           }
         />
       </label>
+      {kind === "guests" && (
+        <label>
+          + guests
+          <div className="guest-stepper">
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Remove accompanying guest"
+              disabled={disabled || !value.plusOnes}
+              onClick={() =>
+                change({ ...value, plusOnes: Number(value.plusOnes) - 1 })
+              }
+            >
+              −
+            </button>
+            <input
+              type="number"
+              min={0}
+              max={MAX_PLUS_ONES}
+              step={1}
+              required
+              value={value.plusOnes}
+              disabled={disabled}
+              aria-label="Additional guests"
+              onChange={(event) =>
+                change({
+                  ...value,
+                  plusOnes:
+                    event.target.value === "" ? "" : Number(event.target.value),
+                })
+              }
+            />
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Add accompanying guest"
+              disabled={disabled || value.plusOnes >= MAX_PLUS_ONES}
+              onClick={() =>
+                change({ ...value, plusOnes: Number(value.plusOnes) + 1 })
+              }
+            >
+              +
+            </button>
+          </div>
+        </label>
+      )}
       {kind === "links" && (
         <label>
           Link URL
@@ -104,7 +155,13 @@ export default function EntryList({
 }) {
   const config = configurations[kind];
   const Icon = config.icon;
-  const blank = { name: "", url: "", category: config.categories?.[0] || "" };
+  const blank = {
+    name: "",
+    url: "",
+    category: config.categories?.[0] || "",
+    plusOnes: 0,
+  };
+  const totalPeople = kind === "guests" ? guestTotal(entries) : 0;
   const [draft, setDraft] = useState(blank),
     [editing, setEditing] = useState(null);
   const [filter, setFilter] = useState("All"),
@@ -119,7 +176,7 @@ export default function EntryList({
     visible = [...visible, editing.entry];
   useEffect(() => {
     const guard = (event) => {
-      if (draft.name || draft.url || editing) {
+      if (draft.name || draft.url || draft.plusOnes || editing) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -151,13 +208,22 @@ export default function EntryList({
     }
   }
   const invalid = (value) =>
-    !value.name.trim() || (kind === "links" && !value.url.trim());
+    !value.name.trim() ||
+    (kind === "links" && !value.url.trim()) ||
+    (kind === "guests" &&
+      (!Number.isInteger(value.plusOnes) ||
+        value.plusOnes < 0 ||
+        value.plusOnes > MAX_PLUS_ONES));
   return (
     <section className="list-card entry-card" aria-label={config.title}>
       <div className="list-heading">
         <h2>
           {config.title}
-          <span>{entries.length}</span>
+          <span>
+            {kind === "guests"
+              ? `${totalPeople} ${totalPeople === 1 ? "person" : "people"}`
+              : entries.length}
+          </span>
         </h2>
         <span className="sync-status">
           {loading ? (
@@ -289,7 +355,19 @@ export default function EntryList({
                         <span className="link-address">{entry.url}</span>
                       </>
                     ) : (
-                      <strong>{entry.name}</strong>
+                      <strong>
+                        {entry.name}
+                        {kind === "guests" && entry.plusOnes > 0
+                          ? ` + ${entry.plusOnes}`
+                          : ""}
+                      </strong>
+                    )}
+                    {kind === "guests" && (
+                      <span>
+                        {1 + (entry.plusOnes ?? 0)}{" "}
+                        {(entry.plusOnes ?? 0) === 0 ? "person" : "people"}{" "}
+                        total
+                      </span>
                     )}
                     {entry.category && <span>{entry.category}</span>}
                   </div>
@@ -324,6 +402,7 @@ export default function EntryList({
                               entry,
                               value: {
                                 name: entry.name,
+                                plusOnes: entry.plusOnes ?? 0,
                                 url: entry.url || "",
                                 category: entry.category || "",
                               },
@@ -367,7 +446,9 @@ export default function EntryList({
       )}
       <div className="list-footer">
         <span>
-          {visible.length} of {entries.length} {config.noun}
+          {kind === "guests"
+            ? `${totalPeople} ${totalPeople === 1 ? "person" : "people"} across ${entries.length} ${entries.length === 1 ? "entry" : "entries"}`
+            : `${visible.length} of ${entries.length} ${config.noun}`}
         </span>
         <span>
           {kind === "guests" ? "Private list" : "For our celebrations"}

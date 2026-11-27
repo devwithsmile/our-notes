@@ -944,3 +944,67 @@ test("songs, links and private guests preserve old data and enforce roles on eve
     );
   assert.deepEqual((await owner.call("/guests")).data, []);
 });
+
+test("guest companions count people, preserve legacy names, and validate totals", async () => {
+  const { guestTotal } = await import("../lib/lists.mjs");
+  await clear();
+  const { owner, partner } = await approvedPair();
+  const first = await owner.call("/guests", "POST", {
+    name: "Aasish",
+    plusOnes: 2,
+  });
+  assert.equal(first.status, 201);
+  assert.equal(first.data.plusOnes, 2);
+  assert.equal(guestTotal((await partner.call("/guests")).data), 3);
+  const second = await owner.call("/guests", "POST", { name: "Solo" });
+  await db.update((state) => {
+    delete state.guests.find((entry) => entry.id === second.data.id).plusOnes;
+  });
+  const guests = (await owner.call("/guests")).data;
+  assert.equal(guests[1].plusOnes, 0);
+  assert.equal(guestTotal(guests), 4);
+  for (const plusOnes of [-1, 1.5, "2", null, 1000])
+    assert.equal(
+      (
+        await owner.call(`/guests/${first.data.id}`, "PUT", {
+          name: "Aasish",
+          version: 1,
+          plusOnes,
+        })
+      ).status,
+      400,
+    );
+  const renamed = await partner.call(`/guests/${first.data.id}`, "PUT", {
+    name: "Aasish updated",
+    version: 1,
+  });
+  assert.equal(renamed.data.plusOnes, 2);
+  assert.equal(
+    (
+      await owner.call(`/guests/${first.data.id}`, "PUT", {
+        name: "Aasish",
+        version: 1,
+        plusOnes: 4,
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await owner.call(`/guests/${first.data.id}`, "PUT", {
+        name: "Aasish",
+        version: 2,
+        plusOnes: 0,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(guestTotal((await owner.call("/guests")).data), 2);
+  assert.equal(
+    (await owner.call(`/guests/${first.data.id}`, "DELETE", { version: 3 }))
+      .status,
+    200,
+  );
+  assert.equal(guestTotal((await partner.call("/guests")).data), 1);
+  assert.ok(!("guests" in (await client().call("/list")).data));
+});
