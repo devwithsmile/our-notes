@@ -15,12 +15,14 @@
     "import:sqlite": "node --env-file-if-exists=.env.local scripts/import-sqlite.mjs",
     "test:browser": "playwright test",
     "format": "prettier --write app components lib scripts tests *.mjs *.js package.json README.md",
-    "storage:upload": "node --env-file-if-exists=.env.local scripts/upload-json.mjs"
+    "storage:upload": "node --env-file-if-exists=.env.local scripts/upload-json.mjs",
+    "storage:check": "node --env-file-if-exists=.env.local scripts/check-mongo.mjs"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.8",
     "@vercel/blob": "^2.9.0",
     "lucide-react": "^0.577.0",
+    "mongodb": "^7.9.1",
     "next": "^16.4.6",
     "proper-lockfile": "^4.1.2",
     "react": "^19.2.0",

@@ -360,7 +360,7 @@ test("Vercel cannot silently fall back to ephemeral local storage", async () => 
       createStore({ file: "/tmp/notes.json" }),
       /cannot be used on Vercel/,
     );
-    await assert.rejects(createStore(), /private Vercel Blob store/);
+    await assert.rejects(createStore(), /MONGODB_URI/);
   } finally {
     delete process.env.VERCEL;
   }

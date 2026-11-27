@@ -21,6 +21,8 @@ export default defineConfig({
     timeout: 120000,
     env: {
       NOTES_FILE: join(database, "notes.json"),
+      MONGODB_URI: "",
+      MONGO_PASSWORD: "",
       BLOB_READ_WRITE_TOKEN: "",
       BLOB_STORE_ID: "",
       VERCEL_OIDC_TOKEN: "",

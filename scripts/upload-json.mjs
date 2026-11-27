@@ -1,35 +1,41 @@
-// Copy a local notebook to an EMPTY private Blob notebook. Never overwrite hosted accounts/notes.
+// Import a private JSON export into an EMPTY MongoDB notebook. Never overwrite data.
 import { readFile } from "node:fs/promises";
-import { createStore, validateState } from "../lib/store.mjs";
-if (
-  !process.env.BLOB_READ_WRITE_TOKEN &&
-  !(process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN)
-)
-  throw new Error(
-    "Set BLOB_READ_WRITE_TOKEN for your private Blob store first.",
+import { MongoClient } from "mongodb";
+import { mongoUri } from "../lib/mongo.mjs";
+import { validateState, MAX_STORE_BYTES } from "../lib/store.mjs";
+const client = new MongoClient(mongoUri(), { serverSelectionTimeoutMS: 10000 });
+try {
+  const source = process.argv[2] || "./data/notes.json";
+  const raw = await readFile(source, "utf8");
+  if (Buffer.byteLength(raw) > MAX_STORE_BYTES)
+    throw new Error("Source exceeds notebook size limit.");
+  const imported = validateState(JSON.parse(raw));
+  if (!imported.users.length)
+    throw new Error("Source has no accounts to import.");
+  delete imported._id;
+  imported.sessions = [];
+  imported.rateLimits = [];
+  imported.imports.push({
+    source: "json-to-mongodb",
+    imported_at: new Date().toISOString(),
+  });
+  if (Buffer.byteLength(JSON.stringify(imported)) > MAX_STORE_BYTES)
+    throw new Error("Source exceeds notebook size limit.");
+  await client.connect();
+  await client
+    .db(process.env.MONGODB_DATABASE || "our_notes")
+    .collection("notebooks")
+    .insertOne({ _id: "shared", ...imported });
+  console.log(
+    "Imported all accounts and lists into MongoDB. Existing passwords work; sign in again. Source file unchanged.",
   );
-const source = process.argv[2] || "./data/notes.json";
-const imported = validateState(JSON.parse(await readFile(source, "utf8")));
-if (!imported.users.length)
-  throw new Error("The source notebook has no accounts to upload.");
-const store = await createStore({
-  file: null,
-  sdk: await import("@vercel/blob"),
-});
-await store.update((state) => {
-  if (state.users.length || state.notes.length)
-    throw new Error(
-      "The hosted notebook is not empty. No data has been replaced.",
-    );
-  state.users = structuredClone(imported.users);
-  state.notes = structuredClone(imported.notes);
-  state.imports = [
-    ...imported.imports,
-    { source: "local-json-upload", imported_at: new Date().toISOString() },
-  ];
-  state.sessions = [];
-  state.rateLimits = [];
-});
-console.log(
-  "Notebook copied to private Vercel Blob. Sign in with your existing account. Local JSON has not been changed.",
-);
+} catch (error) {
+  console.error(
+    error.code === 11000
+      ? "MongoDB already contains a notebook. Nothing was overwritten."
+      : "Import failed. Check the JSON export and MongoDB connection. Credentials are not logged.",
+  );
+  process.exitCode = 1;
+} finally {
+  await client.close();
+}
