@@ -1,6 +1,7 @@
 "use client";
 import SectionTabs, { sections } from "./SectionTabs";
 import SangeetList from "./SangeetList";
+import EntryList from "./EntryList";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
@@ -435,12 +436,15 @@ export default function TodoList() {
     [editing, setEditing] = useState(null),
     [deleting, setDeleting] = useState(null);
   const [activeSection, setActiveSection] = useState("tasks");
-  const section = sections.find((item) => item.id === activeSection);
+
   const [toast, setToast] = useState("");
   const timer = useRef(null),
     addInput = useRef(null),
     requestId = useRef(0);
   const writable = ["owner", "writer"].includes(data.user?.role);
+  const selectedSection =
+    activeSection === "guests" && !writable ? "tasks" : activeSection;
+  const section = sections.find((item) => item.id === selectedSection);
   const remaining = data.tasks.filter((t) => !t.completed).length;
   const refresh = useCallback(async () => {
     const id = ++requestId.current;
@@ -448,6 +452,10 @@ export default function TodoList() {
       const next = await api("/list");
       if (id === requestId.current) {
         setData(next);
+        if (!["owner", "writer"].includes(next.user?.role))
+          setActiveSection((current) =>
+            current === "guests" ? "tasks" : current,
+          );
         setOffline(false);
       }
     } catch {
@@ -561,6 +569,9 @@ export default function TodoList() {
   async function signOut() {
     try {
       await api("/logout", "POST");
+      ++requestId.current;
+      setData((d) => ({ ...d, user: null, guests: undefined }));
+      setActiveSection((current) => (current === "guests" ? "tasks" : current));
       setModal(null);
       await refresh();
     } catch (e) {
@@ -611,7 +622,11 @@ export default function TodoList() {
         </div>
       </header>
       <main>
-        <SectionTabs active={activeSection} onChange={setActiveSection} />
+        <SectionTabs
+          active={selectedSection}
+          onChange={setActiveSection}
+          writable={writable}
+        />
         <section className="intro">
           <span className="eyebrow">A LITTLE LESS TO REMEMBER</span>
           <h1>
@@ -681,7 +696,7 @@ export default function TodoList() {
           id="panel-tasks"
           role="tabpanel"
           aria-labelledby="tab-tasks"
-          hidden={activeSection !== "tasks"}
+          hidden={selectedSection !== "tasks"}
           tabIndex={0}
         >
           <section className="list-card" aria-label="Shared tasks">
@@ -882,7 +897,7 @@ export default function TodoList() {
           id="panel-sangeet"
           role="tabpanel"
           aria-labelledby="tab-sangeet"
-          hidden={activeSection !== "sangeet"}
+          hidden={selectedSection !== "sangeet"}
           tabIndex={0}
         >
           <SangeetList
@@ -894,6 +909,26 @@ export default function TodoList() {
             refresh={refresh}
           />
         </div>
+        {["links", "songs", ...(writable ? ["guests"] : [])].map((kind) => (
+          <div
+            key={kind === "guests" ? `${kind}-${data.user.id}` : kind}
+            id={`panel-${kind}`}
+            role="tabpanel"
+            aria-labelledby={`tab-${kind}`}
+            hidden={selectedSection !== kind}
+            tabIndex={0}
+          >
+            <EntryList
+              kind={kind}
+              entries={data[kind] || []}
+              writable={writable}
+              loading={loading}
+              offline={offline}
+              api={api}
+              refresh={refresh}
+            />
+          </div>
+        ))}
         <p className="page-footer">
           Together, wherever you are. Changes appear automatically.
         </p>

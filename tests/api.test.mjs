@@ -777,3 +777,170 @@ test("owner resets others without granting access; denial removes pending badge 
     201,
   );
 });
+
+test("songs, links and private guests preserve old data and enforce roles on every read and write", async () => {
+  await clear();
+  const { owner, partner, user } = await approvedPair();
+  const visitor = client(),
+    pending = client();
+  await pending.call("/register", "POST", {
+    name: "Guest",
+    username: "requester",
+    password: "guest-test-password",
+  });
+  await db.update((state) => {
+    delete state.songs;
+    delete state.links;
+    delete state.guests;
+  });
+  const initial = (await visitor.call("/list")).data;
+  assert.deepEqual(initial.songs, []);
+  assert.deepEqual(initial.links, []);
+  assert.ok(!("guests" in initial));
+  const fixtures = {
+    songs: { name: "A song", category: "Marathi" },
+    links: {
+      name: "Outfit inspiration",
+      url: "https://example.com/outfit?color=yellow",
+      category: "Haldi",
+    },
+    guests: { name: "Private guest name" },
+  };
+  const created = {};
+  for (const [kind, draft] of Object.entries(fixtures)) {
+    const result = await partner.call(`/${kind}`, "POST", draft);
+    assert.equal(result.status, 201);
+    created[kind] = result.data;
+    for (const reader of [visitor, pending]) {
+      assert.equal((await reader.call(`/${kind}`, "POST", draft)).status, 403);
+      assert.equal(
+        (
+          await reader.call(`/${kind}/${result.data.id}`, "PUT", {
+            ...draft,
+            version: 1,
+          })
+        ).status,
+        403,
+      );
+      assert.equal(
+        (
+          await reader.call(`/${kind}/${result.data.id}`, "DELETE", {
+            version: 1,
+          })
+        ).status,
+        403,
+      );
+    }
+  }
+  for (const category of ["Hindi", "Marathi", "Bhojpuri"])
+    assert.equal(
+      (
+        await owner.call("/songs", "POST", {
+          name: category + " song",
+          category,
+        })
+      ).status,
+      201,
+    );
+  for (const category of ["Mehndi", "Haldi", "Sangeet", "Wedding"])
+    assert.equal(
+      (await owner.call("/links", "POST", { ...fixtures.links, category }))
+        .status,
+      201,
+    );
+  for (const category of ["English", "", null])
+    assert.equal(
+      (await owner.call("/songs", "POST", { name: "No", category })).status,
+      400,
+    );
+  assert.equal(
+    (
+      await owner.call("/links", "POST", {
+        ...fixtures.links,
+        category: "Other",
+      })
+    ).status,
+    400,
+  );
+  for (const url of [
+    "javascript:alert(1)",
+    "data:text/html,test",
+    "file:///tmp/test",
+    "/relative",
+    "https://user:pass@example.com",
+    "not a link",
+  ])
+    assert.equal(
+      (await owner.call("/links", "POST", { ...fixtures.links, url })).status,
+      400,
+    );
+  assert.equal(
+    (await owner.call("/guests", "POST", { name: " " })).status,
+    400,
+  );
+  for (const reader of [visitor, pending]) {
+    assert.equal((await reader.call("/guests")).status, 403);
+    for (const path of [
+      "/list",
+      "/snapshot",
+      "/notes",
+      "/me",
+      "/songs",
+      "/links",
+    ]) {
+      const response = await reader.call(path);
+      assert.equal(response.status, 200);
+      assert.ok(!JSON.stringify(response.data).includes(fixtures.guests.name));
+      assert.match(response.headers.get("cache-control"), /no-store/);
+    }
+  }
+  assert.equal(
+    (await owner.call("/list")).data.guests[0].name,
+    fixtures.guests.name,
+  );
+  assert.equal(
+    (await partner.call("/guests")).data[0].name,
+    fixtures.guests.name,
+  );
+  for (const [kind, entry] of Object.entries(created)) {
+    const changes = await Promise.all([
+      owner.call(`/${kind}/${entry.id}`, "PUT", {
+        ...fixtures[kind],
+        name: "First edit",
+        version: 1,
+      }),
+      partner.call(`/${kind}/${entry.id}`, "PUT", {
+        ...fixtures[kind],
+        name: "Second edit",
+        version: 1,
+      }),
+    ]);
+    assert.deepEqual(changes.map((result) => result.status).sort(), [200, 409]);
+    assert.equal(
+      (await owner.call(`/${kind}/${entry.id}`, "DELETE", { version: 1 }))
+        .status,
+      409,
+    );
+  }
+  await owner.call(`/users/${user.id}`, "PUT", { role: "denied" });
+  assert.equal((await partner.call("/guests")).status, 403);
+  assert.ok(!("guests" in (await partner.call("/list")).data));
+  assert.equal(
+    (
+      await partner.call(`/guests/${created.guests.id}`, "PUT", {
+        name: "No",
+        version: 2,
+      })
+    ).status,
+    403,
+  );
+  assert.equal((await partner.call("/songs")).status, 200);
+  assert.equal((await partner.call("/links")).status, 200);
+  for (const [kind, entry] of Object.entries(created))
+    assert.equal(
+      (await owner.call(`/${kind}/${entry.id}`, "DELETE", { version: 2 }))
+        .status,
+      200,
+    );
+  assert.deepEqual((await owner.call("/guests")).data, []);
+});

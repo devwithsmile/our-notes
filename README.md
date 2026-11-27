@@ -1,9 +1,12 @@
 # Together — shared wedding lists
 
-Simple tabs that everyone can see. Only you and people you approve can edit them.
+Shared wedding tabs with editing limited to you and people you approve. The guest list is visible only to approved editors; other tabs are publicly readable.
 
 - **To-do list:** add a task, mark it done, rename it, or delete it.
 - **Sangeet:** add each person or group and their chosen song; edit or delete entries.
+- **Links** (third tab): save a name and URL under Mehndi, Haldi, Sangeet, or Wedding; filter by event.
+- **Song list:** save song names under Hindi, Marathi, or Bhojpuri; filter by language.
+- **Guest list:** add, edit, or delete guest names. Only the owner and approved editors can view it. It is omitted from public API responses and disappears when editing access is removed.
 - Switch tabs without losing unfinished entries.
 - Share the same link with your partner.
 - They choose **Request access**. You approve them under **Manage access**.
@@ -23,7 +26,7 @@ npm run dev
 
 Open **http://localhost:3000** and select **Set up list**. Create your owner account using the private `SETUP_TOKEN` in `.env.local`. After setup, you just sign in normally.
 
-Tasks, Sangeet entries, and accounts are saved in `data/notes.json`. The existing filename is retained so earlier data is not lost. Previous notes appear as tasks with their text preserved. The data file and `.env.local` are excluded from Git.
+Tasks, Sangeet entries, songs, links, guests, and accounts are saved in `data/notes.json`. The existing filename is retained so earlier data is not lost. Previous notes appear as tasks with their text preserved. The data file and `.env.local` are excluded from Git.
 
 On the same Wi-Fi, your partner can open `http://YOUR-COMPUTER-LAN-IP:3000` while your computer and the app are running. To use it from anywhere, deploy to Vercel.
 

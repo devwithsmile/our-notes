@@ -939,3 +939,127 @@ dialog small {
   flex: 0 0 100%;
   padding-left: 46px;
 }
+
+.entry-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.7fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin: 0 25px 18px;
+  padding: 18px;
+  border: 1px solid #e2e7da;
+  border-radius: 9px;
+  background: #f9fbf6;
+}
+.entry-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+  color: #617455;
+}
+.entry-form input,
+.entry-form select {
+  width: 100%;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid #dbe3d1;
+  border-radius: 7px;
+  background: white;
+  color: #334e36;
+  font: inherit;
+  font-size: 16px;
+}
+.entry-form .button {
+  min-height: 44px;
+}
+.entry-form-links {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.entry-form-links .button {
+  justify-self: start;
+}
+.entry-form-guests {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.entry-edit {
+  margin: 0;
+  width: 100%;
+}
+.list-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 25px 18px;
+}
+.filter-button {
+  padding: 9px 13px;
+  border: 1px solid #dfe5d8;
+  border-radius: 20px;
+  background: white;
+  color: #617455;
+  font-size: 13px;
+  min-height: 38px;
+}
+.filter-button[aria-pressed="true"] {
+  background: #365c45;
+  border-color: #365c45;
+  color: white;
+}
+.private-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 25px 20px;
+  color: #617455;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.private-note svg {
+  flex-shrink: 0;
+}
+.saved-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  color: #365c45;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.saved-link svg {
+  flex-shrink: 0;
+}
+.performance-details .link-address {
+  font-size: 12px;
+}
+select:focus-visible {
+  outline: 2px solid #68896b;
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .entry-form {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0 15px 15px;
+    padding: 15px;
+  }
+  .entry-form > .button {
+    justify-self: start;
+  }
+  .entry-edit {
+    margin: 0;
+  }
+  .list-filters {
+    padding: 0 18px 18px;
+    gap: 6px;
+  }
+  .private-note {
+    margin: 0 18px 18px;
+  }
+  .entry-card .task-actions .icon-button {
+    width: 36px;
+    height: 44px;
+  }
+}
